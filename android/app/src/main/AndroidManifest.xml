@@ -17,7 +17,7 @@
         android:maxSdkVersion="32" />
 
     <application
-        android:label="mobile"
+        android:label="resq-connect"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/incident.dart';
 import '../../domain/usecases/responder/get_assigned_incidents.dart';
 import '../../domain/usecases/responder/update_incident_status.dart';
+import 'incident_provider.dart';
 
 // --- Assigned Incidents State ---
 
@@ -169,8 +170,10 @@ class UpdateStatusNotifier extends Notifier<UpdateStatusState> {
       (failure) => state = UpdateStatusState.error(failure.message),
       (incident) {
         state = UpdateStatusState.success(incident);
-        // Refresh the assigned incidents list after status update
+        // Refresh the assigned incidents list and incident details after status update
         ref.read(assignedIncidentsProvider.notifier).refresh();
+        // Also invalidate and reload the incident details
+        ref.invalidate(incidentDetailsProvider(incidentId));
       },
     );
   }

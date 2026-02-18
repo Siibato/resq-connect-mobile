@@ -11,6 +11,7 @@ import '../../../domain/entities/incident.dart';
 import '../../providers/incident_provider.dart';
 import '../../providers/responder_provider.dart';
 import '../../widgets/incident/incident_status_badge.dart';
+import 'responder_home_screen.dart';
 
 class ResponderReportDetailsScreen extends ConsumerStatefulWidget {
   final String incidentId;
@@ -28,17 +29,54 @@ class ResponderReportDetailsScreen extends ConsumerStatefulWidget {
 class _ResponderReportDetailsScreenState
     extends ConsumerState<ResponderReportDetailsScreen> {
   late MapController _mapController;
+  bool _autoAcknowledged = false;
 
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
+    // Auto-acknowledge when opening a pending report
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoAcknowledgeIfPending();
+    });
+  }
+
+  void _autoAcknowledgeIfPending() {
+    if (_autoAcknowledged) return; // Prevent duplicate calls
+
+    final incidentDetailsState = ref.read(
+      incidentDetailsProvider(widget.incidentId),
+    );
+    incidentDetailsState.maybeWhen(
+      loaded: (incident) {
+        // Auto-start responding when opening a PENDING report
+        if (incident.status == IncidentStatus.pending) {
+          _autoAcknowledged = true;
+          _updateStatus('IN_PROGRESS');
+        }
+      },
+      orElse: () {},
+    );
   }
 
   @override
   void dispose() {
     _mapController.dispose();
     super.dispose();
+  }
+
+  Future<void> _goToHome() async {
+    if (mounted) {
+      // Navigate directly to ResponderHomeScreen using pushAndRemoveUntil to clear the stack
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const ResponderHomeScreen()),
+        (route) => false,
+      );
+    }
+
+    // Refresh the assigned incidents in the background (don't wait for it)
+    // This will update the list after we've already navigated
+    ref.read(assignedIncidentsProvider.notifier).refresh();
   }
 
   Future<void> _makePhoneCall(String phoneNumber) async {
@@ -84,7 +122,7 @@ class _ResponderReportDetailsScreenState
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: AppColors.textBlack),
-            onPressed: () => Navigator.pop(context),
+            onPressed: _goToHome,
           ),
         ),
         body: const Center(child: CircularProgressIndicator()),
@@ -96,7 +134,7 @@ class _ResponderReportDetailsScreenState
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: AppColors.textBlack),
-            onPressed: () => Navigator.pop(context),
+            onPressed: _goToHome,
           ),
         ),
         body: Center(
@@ -137,7 +175,7 @@ class _ResponderReportDetailsScreenState
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: AppColors.textBlack),
-            onPressed: () => Navigator.pop(context),
+            onPressed: _goToHome,
           ),
         ),
         body: SingleChildScrollView(
@@ -286,7 +324,7 @@ class _ResponderReportDetailsScreenState
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: AppColors.textBlack),
-            onPressed: () => Navigator.pop(context),
+            onPressed: _goToHome,
           ),
         ),
         body: const Center(
@@ -336,9 +374,8 @@ class _ResponderReportDetailsScreenState
 
   Widget _buildCallSection(Incident incident) {
     final reporterName = incident.reporterName ?? 'Reporter';
-    // Note: In a real app, you'd fetch the reporter's phone number from the incident data
-    // For now, we'll use a placeholder
-    const reporterPhone = '+1234567890'; // This would come from the incident data
+    final reporterPhone = incident.reporterMobile ?? 'Unknown';
+    final hasValidPhone = incident.reporterMobile != null && incident.reporterMobile!.isNotEmpty;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -387,30 +424,33 @@ class _ResponderReportDetailsScreenState
                 Expanded(
                   child: Text(
                     reporterPhone,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.textBlack,
+                      color: hasValidPhone ? AppColors.textBlack : AppColors.error,
                     ),
                   ),
                 ),
-                GestureDetector(
-                  onTap: () => _makePhoneCall(reporterPhone.replaceAll('+', '')),
-                  child: const Icon(
-                    Icons.phone_outlined,
-                    color: AppColors.primaryBlue,
-                    size: 20,
+                if (hasValidPhone) ...[
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _makePhoneCall(reporterPhone.replaceAll('+', '')),
+                    child: const Icon(
+                      Icons.phone_outlined,
+                      color: AppColors.primaryBlue,
+                      size: 20,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () => _copyToClipboard(reporterPhone),
-                  child: const Icon(
-                    Icons.content_copy_outlined,
-                    color: AppColors.textGrey,
-                    size: 18,
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () => _copyToClipboard(reporterPhone),
+                    child: const Icon(
+                      Icons.content_copy_outlined,
+                      color: AppColors.textGrey,
+                      size: 18,
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -442,31 +482,22 @@ class _ResponderReportDetailsScreenState
           spacing: 8,
           children: [
             _buildStatusButton(
-              label: 'Received',
-              icon: Icons.visibility_outlined,
-              status: 'PENDING',
-              isActive: incident.status.toString() == 'IncidentStatus.pending',
-              isDisabled: true, // Can't go back to pending
-              isLoading: isUpdating,
-              onTap: () => _updateStatus('PENDING'),
-            ),
-            _buildStatusButton(
-              label: 'In progress',
+              label: 'Start Responding',
+              subtitle: 'Mark as In Progress',
               icon: Icons.autorenew_outlined,
               status: 'IN_PROGRESS',
-              isActive:
-                  incident.status.toString() == 'IncidentStatus.inProgress',
-              isDisabled: incident.status.toString() == 'IncidentStatus.pending' ||
-                  incident.status.toString() == 'IncidentStatus.resolved',
+              isActive: incident.status == IncidentStatus.inProgress,
+              isDisabled: incident.status == IncidentStatus.resolved,
               isLoading: isUpdating,
               onTap: () => _updateStatus('IN_PROGRESS'),
             ),
             _buildStatusButton(
-              label: 'Resolved',
+              label: 'Mark Resolved',
+              subtitle: 'Incident complete',
               icon: Icons.check_circle_outlined,
               status: 'RESOLVED',
-              isActive: incident.status.toString() == 'IncidentStatus.resolved',
-              isDisabled: false,
+              isActive: incident.status == IncidentStatus.resolved,
+              isDisabled: incident.status != IncidentStatus.inProgress,
               isLoading: isUpdating,
               onTap: () => _updateStatus('RESOLVED'),
             ),
@@ -498,6 +529,7 @@ class _ResponderReportDetailsScreenState
 
   Widget _buildStatusButton({
     required String label,
+    required String subtitle,
     required IconData icon,
     required String status,
     required bool isActive,
@@ -527,13 +559,25 @@ class _ResponderReportDetailsScreenState
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isActive ? Colors.white : AppColors.textBlack,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isActive ? Colors.white : AppColors.textBlack,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isActive ? Colors.white70 : AppColors.textGrey,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               if (isLoading)

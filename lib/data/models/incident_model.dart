@@ -9,6 +9,8 @@ class IncidentModel {
   final String? address;
   final String status;
   final String? priority;
+  final String? reporterName;
+  final String? reporterMobile;
   final DateTime? createdAt;
   final List<IncidentMediaModel> media;
 
@@ -21,6 +23,8 @@ class IncidentModel {
     this.address,
     required this.status,
     this.priority,
+    this.reporterName,
+    this.reporterMobile,
     this.createdAt,
     this.media = const [],
   });
@@ -44,6 +48,15 @@ class IncidentModel {
       }
     }
 
+    // Extract reporter information
+    String? reporterName;
+    String? reporterMobile;
+    final reporter = json['reporter'] as Map<String, dynamic>?;
+    if (reporter != null) {
+      reporterName = reporter['fullName']?.toString() ?? reporter['name']?.toString();
+      reporterMobile = reporter['mobile']?.toString() ?? reporter['phone']?.toString();
+    }
+
     return IncidentModel(
       id: id,
       type: json['type']?.toString().toUpperCase() ?? 'POLICE',
@@ -53,6 +66,8 @@ class IncidentModel {
       address: json['address']?.toString(),
       status: json['status']?.toString().toUpperCase() ?? 'PENDING',
       priority: json['priority']?.toString(),
+      reporterName: reporterName,
+      reporterMobile: reporterMobile,
       createdAt: parsedDate ?? DateTime.now(),
       media: (json['media'] as List<dynamic>? ?? [])
           .map((m) => IncidentMediaModel.fromJson(m as Map<String, dynamic>))
@@ -74,7 +89,7 @@ class IncidentModel {
     };
   }
 
-  Incident toEntity({String? reporterName}) {
+  Incident toEntity({String? reporterName, String? reporterMobile}) {
     return Incident(
       id: id,
       type: IncidentTypeExtension.fromString(type),
@@ -84,7 +99,8 @@ class IncidentModel {
       address: address,
       status: IncidentStatusExtension.fromString(status),
       priority: priority,
-      reporterName: reporterName,
+      reporterName: reporterName ?? this.reporterName,
+      reporterMobile: reporterMobile ?? this.reporterMobile,
       createdAt: createdAt,
       mediaUrls: media.map((m) => m.fileUrl).toList(),
     );

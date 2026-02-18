@@ -39,15 +39,6 @@ class ReportConfirmationScreen extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              Text(
-                'Report ID: ${incident.id}',
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textGrey,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
               const Text(
                 'Your report has been received and will be\nreviewed by the appropriate authorities.\nTogether, we keep our community safe.',
                 style: TextStyle(
@@ -72,35 +63,6 @@ class ReportConfirmationScreen extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (_) => ReportSummaryScreen(incident: incident),
-                      ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryBlue,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: const Text(
-                    'See Report Status',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 height: 56,

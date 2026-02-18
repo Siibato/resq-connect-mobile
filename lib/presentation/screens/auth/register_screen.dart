@@ -24,6 +24,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _obscurePassword = true;
   DateTime? _selectedDate;
   String _countryCode = '+63';
+  String _selectedRole = 'CITIZEN';
 
   @override
   void dispose() {
@@ -78,6 +79,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             dateOfBirth: _selectedDate!,
             mobile: '$_countryCode${_mobileController.text.trim()}',
             password: _passwordController.text,
+            role: _selectedRole,
           );
     }
   }
@@ -133,30 +135,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 20),
                 // Logo
                 Center(
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryBlue,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(
-                      Icons.shield,
-                      size: 44,
-                      color: Colors.white,
-                    ),
+                  child: SizedBox(
+                    width: 100,
+                    height: 100,
+                    child: Image.asset('assets/images/Logo.png'),
                   ),
                 ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Logoipsum',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textBlack,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+                const SizedBox(height: 24),
                 const SizedBox(height: 32),
                 const Text(
                   'Sign Up',
@@ -243,6 +228,109 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 20),
+                // Role selection
+                const Text(
+                  'Sign up as',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textBlack,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _selectedRole = 'CITIZEN'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: _selectedRole == 'CITIZEN'
+                                ? AppColors.primaryBlue
+                                : AppColors.formBackground,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _selectedRole == 'CITIZEN'
+                                  ? AppColors.primaryBlue
+                                  : Colors.grey.shade300,
+                            ),
+                          ),
+                          child: Text(
+                            'Citizen',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: _selectedRole == 'CITIZEN'
+                                  ? Colors.white
+                                  : AppColors.textBlack,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _selectedRole = 'RESPONDER'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          decoration: BoxDecoration(
+                            color: _selectedRole == 'RESPONDER'
+                                ? AppColors.primaryBlue
+                                : AppColors.formBackground,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _selectedRole == 'RESPONDER'
+                                  ? AppColors.primaryBlue
+                                  : Colors.grey.shade300,
+                            ),
+                          ),
+                          child: Text(
+                            'Responder',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: _selectedRole == 'RESPONDER'
+                                  ? Colors.white
+                                  : AppColors.textBlack,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_selectedRole == 'RESPONDER') ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade200),
+                    ),
+                    child: const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.info_outline, size: 18, color: Colors.amber),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Responders must be pre-registered by an administrator',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.amber,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 // Date of Birth field
                 const Text(

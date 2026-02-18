@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/auth_state.dart';
 import '../home/home_screen.dart';
+import '../responder/responder_home_screen.dart';
 import 'otp_verification_screen.dart';
 import 'register_screen.dart';
 
@@ -44,9 +45,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     ref.listen<AuthState>(authNotifierProvider, (previous, next) {
       next.maybeWhen(
-        authenticated: (_) {
+        authenticated: (user) {
+          final screen = user.isResponder
+              ? const ResponderHomeScreen()
+              : const HomeScreen();
           Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const HomeScreen()),
+            MaterialPageRoute(builder: (_) => screen),
           );
         },
         unverified: (identifier) {
@@ -97,30 +101,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 80),
                 // Logo
                 Center(
-                  child: Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryBlue,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(
-                      Icons.shield,
-                      size: 44,
-                      color: Colors.white,
-                    ),
+                  child: SizedBox(
+                    width: 100,
+                    height: 100,
+                    child: Image.asset('assets/images/Logo.png'),
                   ),
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Logoipsum',
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textBlack,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
+                const SizedBox(height: 24),
                 const SizedBox(height: 48),
                 const Text(
                   'Sign in to your Account',
@@ -305,18 +292,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           width: 2,
                         ),
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Forgot password
-                Center(
-                  child: Text(
-                    'Forgot your password ?',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textBlack.withValues(alpha: 0.7),
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),

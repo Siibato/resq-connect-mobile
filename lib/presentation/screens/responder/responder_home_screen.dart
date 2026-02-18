@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../domain/entities/incident.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/responder_provider.dart';
 import '../../widgets/incident/incident_card.dart';
@@ -79,7 +80,9 @@ class _ResponderHomeScreenState extends ConsumerState<ResponderHomeScreen> {
       (previous, next) {
         next.maybeWhen(
           loaded: (incidents, newlyAssigned) {
-            if (newlyAssigned != null) {
+            // Only show modal if incident is PENDING (Received status)
+            // Never show for ACKNOWLEDGED, IN_PROGRESS, or RESOLVED
+            if (newlyAssigned != null && newlyAssigned.status == IncidentStatus.pending) {
               _showAssignmentModal(context, newlyAssigned);
             }
           },
@@ -316,7 +319,102 @@ class _ResponderHomeScreenState extends ConsumerState<ResponderHomeScreen> {
           ),
         );
       },
-      orElse: () => const SizedBox.shrink(),
+      orElse: () => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            // Search bar and notification
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      children: [
+                        SizedBox(width: 16),
+                        Icon(Icons.search, color: AppColors.textGrey),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Search',
+                            style: TextStyle(
+                              color: AppColors.textGrey,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.notifications_outlined,
+                    color: AppColors.textBlack,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            // Welcome greeting
+            Text(
+              'Welcome, ${user.fullName.split(' ').first}!',
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textBlack,
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Department badge
+            if (user.department != null)
+              Chip(
+                label: Text(
+                  user.department!.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+                backgroundColor: AppColors.primaryBlue,
+              ),
+            const SizedBox(height: 20),
+            // Loading state
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Loading incidents...',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: AppColors.textGrey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

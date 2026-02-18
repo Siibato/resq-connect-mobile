@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../providers/auth_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../home/home_screen.dart';
+import '../responder/responder_home_screen.dart';
 
-class TermsConditionsScreen extends StatefulWidget {
+class TermsConditionsScreen extends ConsumerStatefulWidget {
   final String identifier;
   final bool isViewOnly;
 
@@ -13,10 +17,10 @@ class TermsConditionsScreen extends StatefulWidget {
   });
 
   @override
-  State<TermsConditionsScreen> createState() => _TermsConditionsScreenState();
+  ConsumerState<TermsConditionsScreen> createState() => _TermsConditionsScreenState();
 }
 
-class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
+class _TermsConditionsScreenState extends ConsumerState<TermsConditionsScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _hasScrolledToBottom = false;
   bool _agreedToTerms = false;
@@ -140,11 +144,25 @@ class _TermsConditionsScreenState extends State<TermsConditionsScreen> {
                     child: ElevatedButton(
                       onPressed: _agreedToTerms
                           ? () {
-                              Navigator.of(context).pushAndRemoveUntil(
-                                MaterialPageRoute(
-                                  builder: (_) => const HomeScreen(),
-                                ),
-                                (route) => false,
+                              final authState = ref.read(authNotifierProvider);
+                              authState.maybeWhen(
+                                authenticated: (user) {
+                                  final screen = user.isResponder
+                                      ? const ResponderHomeScreen()
+                                      : const HomeScreen();
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(builder: (_) => screen),
+                                    (route) => false,
+                                  );
+                                },
+                                orElse: () {
+                                  Navigator.of(context).pushAndRemoveUntil(
+                                    MaterialPageRoute(
+                                      builder: (_) => const HomeScreen(),
+                                    ),
+                                    (route) => false,
+                                  );
+                                },
                               );
                             }
                           : null,

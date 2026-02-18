@@ -3,12 +3,14 @@ class RegisterParams {
   final DateTime dateOfBirth;
   final String mobile;
   final String password;
+  final String role;
 
   const RegisterParams({
     required this.fullName,
     required this.dateOfBirth,
     required this.mobile,
     required this.password,
+    required this.role,
   });
 
   Map<String, dynamic> toJson() => {
@@ -16,6 +18,7 @@ class RegisterParams {
         'dateOfBirth': dateOfBirth.toIso8601String(),
         'mobile': mobile,
         'password': password,
+        'role': role,
       };
 }
 

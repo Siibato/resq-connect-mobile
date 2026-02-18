@@ -46,7 +46,7 @@ class OnboardingScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 40),
-              // Community illustration placeholder
+              // Logo
               Expanded(
                 child: Center(
                   child: Container(
@@ -56,25 +56,7 @@ class OnboardingScreen extends StatelessWidget {
                       color: AppColors.formBackground,
                       borderRadius: BorderRadius.circular(24),
                     ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.people_alt_rounded,
-                          size: 100,
-                          color: AppColors.primaryBlue.withValues(alpha: 0.7),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Community Safety',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primaryBlue.withValues(alpha: 0.8),
-                          ),
-                        ),
-                      ],
-                    ),
+                    child: Image.asset('assets/images/Logo.png'),
                   ),
                 ),
               ),

@@ -79,6 +79,7 @@ class Incident {
   final IncidentStatus status;
   final String? priority;
   final String? reporterName;
+  final String? reporterMobile;
   final DateTime? createdAt;
   final List<String> mediaUrls;
 
@@ -92,6 +93,7 @@ class Incident {
     required this.status,
     this.priority,
     this.reporterName,
+    this.reporterMobile,
     this.createdAt,
     this.mediaUrls = const [],
   });
@@ -116,6 +118,7 @@ class Incident {
     IncidentStatus? status,
     String? priority,
     String? reporterName,
+    String? reporterMobile,
     DateTime? createdAt,
     List<String>? mediaUrls,
   }) {
@@ -129,6 +132,7 @@ class Incident {
       status: status ?? this.status,
       priority: priority ?? this.priority,
       reporterName: reporterName ?? this.reporterName,
+      reporterMobile: reporterMobile ?? this.reporterMobile,
       createdAt: createdAt ?? this.createdAt,
       mediaUrls: mediaUrls ?? this.mediaUrls,
     );

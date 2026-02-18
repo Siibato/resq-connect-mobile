@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../home/home_screen.dart';
 import '../onboarding/onboarding_screen.dart';
@@ -55,28 +54,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Logo
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                color: AppColors.primaryBlue,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.shield,
-                size: 56,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'RESQ-Connect',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textBlack,
-                letterSpacing: 1.2,
-              ),
+            SizedBox(
+              width: 120,
+              height: 120,
+              child: Image.asset('assets/images/Logo.png'),
             ),
           ],
         ),

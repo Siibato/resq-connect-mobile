@@ -33,6 +33,7 @@ class AuthNotifier extends Notifier<AuthState> {
     required DateTime dateOfBirth,
     required String mobile,
     required String password,
+    required String role,
   }) async {
     state = const AuthState.loading();
 
@@ -41,6 +42,7 @@ class AuthNotifier extends Notifier<AuthState> {
       dateOfBirth: dateOfBirth,
       mobile: mobile,
       password: password,
+      role: role,
     ));
 
     result.fold(
