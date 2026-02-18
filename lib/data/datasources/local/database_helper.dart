@@ -3,8 +3,9 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
 const _dbName = 'resconnect.db';
-const _dbVersion = 1;
+const _dbVersion = 2;
 const _tableOfflineReports = 'offline_reports';
+const _tableSmsOfflineReports = 'sms_offline_reports';
 
 class DatabaseHelper {
   static Database? _database;
@@ -39,6 +40,23 @@ class DatabaseHelper {
         synced INTEGER NOT NULL DEFAULT 0
       )
     ''');
+
+    // SMS offline reports table for no-internet mode
+    await db.execute('''
+      CREATE TABLE $_tableSmsOfflineReports (
+        id TEXT PRIMARY KEY,
+        citizen_id TEXT NOT NULL,
+        citizen_name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        latitude REAL NOT NULL,
+        longitude REAL NOT NULL,
+        description TEXT NOT NULL,
+        sms_text TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'DRAFT',
+        created_at TEXT NOT NULL,
+        sent_at TEXT
+      )
+    ''');
   }
 
   Future<int> insertOfflineReport(Map<String, dynamic> report) async {
@@ -69,6 +87,53 @@ class DatabaseHelper {
     final db = await database;
     await db.delete(
       _tableOfflineReports,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // --- SMS Offline Reports (for no-internet mode) ---
+
+  Future<void> insertSmsOfflineReport(Map<String, dynamic> report) async {
+    final db = await database;
+    await db.insert(_tableSmsOfflineReports, report);
+  }
+
+  Future<List<Map<String, dynamic>>> getDraftSmsReports() async {
+    final db = await database;
+    return db.query(
+      _tableSmsOfflineReports,
+      where: 'status = ?',
+      whereArgs: ['DRAFT'],
+      orderBy: 'created_at DESC',
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> getAllSmsReports() async {
+    final db = await database;
+    return db.query(
+      _tableSmsOfflineReports,
+      orderBy: 'created_at DESC',
+    );
+  }
+
+  Future<void> markSmsSent(String id) async {
+    final db = await database;
+    await db.update(
+      _tableSmsOfflineReports,
+      {
+        'status': 'SENT',
+        'sent_at': DateTime.now().toIso8601String(),
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  Future<void> deleteSmsReport(String id) async {
+    final db = await database;
+    await db.delete(
+      _tableSmsOfflineReports,
       where: 'id = ?',
       whereArgs: [id],
     );

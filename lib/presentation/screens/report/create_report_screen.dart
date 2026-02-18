@@ -7,8 +7,10 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/incident.dart';
+import '../../../services/health_check_service.dart';
 import '../../../services/location_service.dart';
 import '../../providers/incident_provider.dart';
+import 'offline_report_screen.dart';
 import 'report_confirmation_screen.dart';
 
 class CreateReportScreen extends ConsumerStatefulWidget {
@@ -39,6 +41,23 @@ class _CreateReportScreenState extends ConsumerState<CreateReportScreen> {
   @override
   void initState() {
     super.initState();
+    _checkServerAndFetchLocation();
+  }
+
+  Future<void> _checkServerAndFetchLocation() async {
+    // For access to ref, we need to use context to get the WidgetRef
+    final healthCheckService = ref.read(healthCheckServiceProvider);
+    final isServerReachable = await healthCheckService.isServerReachable();
+
+    if (!isServerReachable && mounted) {
+      // Server not reachable - go to offline mode
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const OfflineReportScreen()),
+      );
+      return;
+    }
+
+    // Server reachable - proceed with normal flow
     _fetchLocation();
   }
 
