@@ -5,6 +5,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../providers/auth_provider.dart';
 import '../home/home_screen.dart';
 import '../onboarding/onboarding_screen.dart';
+import '../responder/responder_home_screen.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -28,15 +29,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (!mounted) return;
 
     final authState = ref.read(authNotifierProvider);
-    if (authState.isAuthenticated) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
-      );
-    } else {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-      );
-    }
+    authState.maybeWhen(
+      authenticated: (user) {
+        final screen = user.isResponder
+            ? const ResponderHomeScreen()
+            : const HomeScreen();
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => screen),
+        );
+      },
+      orElse: () {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+        );
+      },
+    );
   }
 
   @override

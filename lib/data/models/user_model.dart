@@ -10,6 +10,7 @@ class UserModel {
   final String? lguId;
   final String? profilePicture;
   final String? address;
+  final String? department;
   final bool isVerified;
   final DateTime? createdAt;
   final DateTime? lastLogin;
@@ -24,6 +25,7 @@ class UserModel {
     this.lguId,
     this.profilePicture,
     this.address,
+    this.department,
     required this.isVerified,
     this.createdAt,
     this.lastLogin,
@@ -48,6 +50,7 @@ class UserModel {
       lguId: json['lguId']?.toString() ?? json['lgu_id']?.toString(),
       profilePicture: json['profilePicture']?.toString() ?? json['profile_picture']?.toString(),
       address: json['address']?.toString(),
+      department: json['department']?.toString(),
       isVerified: (json['isVerified'] as bool?) ?? (json['is_verified'] as bool?) ?? false,
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'].toString())
@@ -73,6 +76,7 @@ class UserModel {
       'lguId': lguId,
       'profilePicture': profilePicture,
       'address': address,
+      'department': department,
       'isVerified': isVerified,
       'createdAt': createdAt?.toIso8601String(),
       'lastLogin': lastLogin?.toIso8601String(),
@@ -90,6 +94,7 @@ class UserModel {
       lguId: lguId,
       profilePicture: profilePicture,
       address: address,
+      department: department,
       isVerified: isVerified,
       createdAt: createdAt,
       lastLogin: lastLogin,
@@ -107,6 +112,7 @@ class UserModel {
       lguId: user.lguId,
       profilePicture: user.profilePicture,
       address: user.address,
+      department: user.department,
       isVerified: user.isVerified,
       createdAt: user.createdAt,
       lastLogin: user.lastLogin,

@@ -38,4 +38,12 @@ abstract class IncidentRepository {
   });
 
   Future<Either<Failure, int>> syncOfflineReports();
+
+  Future<Either<Failure, List<Incident>>> getAssignedIncidents(int page, int limit);
+
+  Future<Either<Failure, Incident>> updateIncidentStatus(
+    String id,
+    String status, {
+    String? notes,
+  });
 }

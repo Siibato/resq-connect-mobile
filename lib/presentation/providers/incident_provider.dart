@@ -150,6 +150,23 @@ sealed class IncidentDetailsState {
       IncidentDetailsLoaded;
   const factory IncidentDetailsState.error(String message) =
       IncidentDetailsError;
+
+  T maybeWhen<T>({
+    T Function()? initial,
+    T Function()? loading,
+    T Function(Incident incident)? loaded,
+    T Function(String message)? error,
+    required T Function() orElse,
+  }) {
+    return switch (this) {
+      IncidentDetailsInitial() => initial?.call() ?? orElse(),
+      IncidentDetailsLoading() => loading?.call() ?? orElse(),
+      IncidentDetailsLoaded(incident: final incident) =>
+        loaded?.call(incident) ?? orElse(),
+      IncidentDetailsError(message: final message) =>
+        error?.call(message) ?? orElse(),
+    };
+  }
 }
 
 class IncidentDetailsInitial extends IncidentDetailsState {

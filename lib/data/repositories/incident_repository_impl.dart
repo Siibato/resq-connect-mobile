@@ -11,19 +11,23 @@ import '../../domain/repositories/incident_repository.dart';
 import '../datasources/local/database_helper.dart';
 import '../datasources/remote/incident_remote_datasource.dart';
 import '../datasources/remote/media_remote_datasource.dart';
+import '../datasources/remote/responder_remote_datasource.dart';
 import '../models/incident_model.dart';
 
 class IncidentRepositoryImpl implements IncidentRepository {
   final IncidentRemoteDataSource _remoteDataSource;
   final MediaRemoteDataSource _mediaDataSource;
+  final ResponderRemoteDataSource _responderDataSource;
   final DatabaseHelper _databaseHelper;
 
   IncidentRepositoryImpl({
     required IncidentRemoteDataSource remoteDataSource,
     required MediaRemoteDataSource mediaDataSource,
+    required ResponderRemoteDataSource responderDataSource,
     required DatabaseHelper databaseHelper,
   })  : _remoteDataSource = remoteDataSource,
         _mediaDataSource = mediaDataSource,
+        _responderDataSource = responderDataSource,
         _databaseHelper = databaseHelper;
 
   @override
@@ -179,12 +183,56 @@ class IncidentRepositoryImpl implements IncidentRepository {
       return Left(Failure.unexpected(message: e.toString()));
     }
   }
+
+  @override
+  Future<Either<Failure, List<Incident>>> getAssignedIncidents(
+    int page,
+    int limit,
+  ) async {
+    try {
+      final result = await _responderDataSource.getAssignedIncidents(
+        page: page,
+        limit: limit,
+      );
+      final incidents = result.data.map((m) => m.toEntity()).toList();
+      return Right(incidents);
+    } on ServerException catch (e) {
+      return Left(Failure.server(message: e.message, statusCode: e.statusCode));
+    } on NetworkException catch (e) {
+      return Left(Failure.network(message: e.message));
+    } catch (e) {
+      return Left(Failure.unexpected(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Incident>> updateIncidentStatus(
+    String id,
+    String status, {
+    String? notes,
+  }) async {
+    try {
+      final model = await _responderDataSource.updateIncidentStatus(
+        id,
+        status,
+        notes: notes,
+      );
+      return Right(model.toEntity());
+    } on ServerException catch (e) {
+      return Left(Failure.server(message: e.message, statusCode: e.statusCode));
+    } on NetworkException catch (e) {
+      return Left(Failure.network(message: e.message));
+    } catch (e) {
+      return Left(Failure.unexpected(message: e.toString()));
+    }
+  }
 }
 
 final incidentRepositoryProvider = Provider<IncidentRepository>((ref) {
   return IncidentRepositoryImpl(
     remoteDataSource: ref.watch(incidentRemoteDataSourceProvider),
     mediaDataSource: ref.watch(mediaRemoteDataSourceProvider),
+    responderDataSource: ref.watch(responderRemoteDataSourceProvider),
     databaseHelper: ref.watch(databaseHelperProvider),
   );
 });

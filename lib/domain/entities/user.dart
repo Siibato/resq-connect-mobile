@@ -8,6 +8,7 @@ class User {
   final String? lguId;
   final String? profilePicture;
   final String? address;
+  final String? department;
   final bool isVerified;
   final DateTime? createdAt;
   final DateTime? lastLogin;
@@ -22,6 +23,7 @@ class User {
     this.lguId,
     this.profilePicture,
     this.address,
+    this.department,
     required this.isVerified,
     this.createdAt,
     this.lastLogin,
