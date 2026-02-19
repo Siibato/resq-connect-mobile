@@ -11,6 +11,7 @@ abstract class AuthRemoteDataSource {
   Future<LoginResponseModel> login(LoginParams params);
   Future<VerifyOtpResponseModel> verifyOtp(VerifyOtpParams params);
   Future<MessageResponseModel> resendOtp(String identifier);
+  Future<RefreshTokenResponseModel> refreshToken(String refreshToken);
   Future<UserModel> getProfile();
   Future<UserModel> updateProfile(UpdateProfileParams params);
   Future<void> changePassword(ChangePasswordParams params);
@@ -55,6 +56,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       data: {'identifier': identifier},
     );
     return MessageResponseModel.fromJson(response.data);
+  }
+
+  @override
+  Future<RefreshTokenResponseModel> refreshToken(String refreshToken) async {
+    final response = await _dioClient.post(
+      ApiConstants.refresh,
+      data: {'refreshToken': refreshToken},
+    );
+    return RefreshTokenResponseModel.fromJson(response.data);
   }
 
   @override

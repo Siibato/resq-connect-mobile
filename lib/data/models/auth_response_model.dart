@@ -3,11 +3,13 @@ import 'user_model.dart';
 class LoginResponseModel {
   final String message;
   final String accessToken;
+  final String? refreshToken;
   final UserModel user;
 
   const LoginResponseModel({
     required this.message,
     required this.accessToken,
+    this.refreshToken,
     required this.user,
   });
 
@@ -15,6 +17,7 @@ class LoginResponseModel {
     return LoginResponseModel(
       message: json['message'] as String,
       accessToken: json['accessToken'] as String,
+      refreshToken: json['refreshToken'] as String?,
       user: UserModel.fromJson(json['user'] as Map<String, dynamic>),
     );
   }
@@ -67,6 +70,23 @@ class MessageResponseModel {
   factory MessageResponseModel.fromJson(Map<String, dynamic> json) {
     return MessageResponseModel(
       message: json['message'] as String,
+    );
+  }
+}
+
+class RefreshTokenResponseModel {
+  final String message;
+  final String accessToken;
+
+  const RefreshTokenResponseModel({
+    required this.message,
+    required this.accessToken,
+  });
+
+  factory RefreshTokenResponseModel.fromJson(Map<String, dynamic> json) {
+    return RefreshTokenResponseModel(
+      message: json['message'] as String,
+      accessToken: json['accessToken'] as String,
     );
   }
 }

@@ -98,6 +98,46 @@ class DioClient {
     return InterceptorsWrapper(
       onError: (error, handler) async {
         if (error.response?.statusCode == 401) {
+          // Try to refresh the token before logging out
+          try {
+            final refreshToken = await _secureStorage.getRefreshToken();
+            if (refreshToken != null) {
+              // Attempt to refresh the access token
+              final response = await _dio.post(
+                ApiConstants.refresh,
+                data: {'refreshToken': refreshToken},
+                options: Options(
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                ),
+              );
+
+              if (response.statusCode == 200) {
+                final newAccessToken = response.data['accessToken'] as String?;
+                if (newAccessToken != null) {
+                  // Save new access token
+                  await _secureStorage.saveAccessToken(newAccessToken);
+
+                  // Retry the original request with new token
+                  error.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+                  return handler.resolve(await _dio.request(
+                    error.requestOptions.path,
+                    options: Options(
+                      method: error.requestOptions.method,
+                      headers: error.requestOptions.headers,
+                    ),
+                    data: error.requestOptions.data,
+                    queryParameters: error.requestOptions.queryParameters,
+                  ));
+                }
+              }
+            }
+          } catch (e) {
+            _logger.e('Token refresh failed: $e');
+          }
+
+          // If refresh failed or no refresh token, force logout
           await _secureStorage.clearAll();
           onForceLogout?.call();
         }

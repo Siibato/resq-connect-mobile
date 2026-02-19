@@ -10,6 +10,9 @@ abstract class SecureStorage {
   Future<void> saveAccessToken(String token);
   Future<String?> getAccessToken();
   Future<void> deleteAccessToken();
+  Future<void> saveRefreshToken(String token);
+  Future<String?> getRefreshToken();
+  Future<void> deleteRefreshToken();
   Future<void> saveUser(UserModel user);
   Future<UserModel?> getUser();
   Future<void> deleteUser();
@@ -45,6 +48,33 @@ class SecureStorageImpl implements SecureStorage {
       await _storage.delete(key: StorageKeys.accessToken);
     } catch (e) {
       throw CacheException('Failed to delete access token: $e');
+    }
+  }
+
+  @override
+  Future<void> saveRefreshToken(String token) async {
+    try {
+      await _storage.write(key: StorageKeys.refreshToken, value: token);
+    } catch (e) {
+      throw CacheException('Failed to save refresh token: $e');
+    }
+  }
+
+  @override
+  Future<String?> getRefreshToken() async {
+    try {
+      return await _storage.read(key: StorageKeys.refreshToken);
+    } catch (e) {
+      throw CacheException('Failed to get refresh token: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteRefreshToken() async {
+    try {
+      await _storage.delete(key: StorageKeys.refreshToken);
+    } catch (e) {
+      throw CacheException('Failed to delete refresh token: $e');
     }
   }
 
@@ -91,11 +121,7 @@ class SecureStorageImpl implements SecureStorage {
 }
 
 final flutterSecureStorageProvider = Provider<FlutterSecureStorage>((ref) {
-  return const FlutterSecureStorage(
-    aOptions: AndroidOptions(
-      encryptedSharedPreferences: true,
-    ),
-  );
+  return const FlutterSecureStorage();
 });
 
 final secureStorageProvider = Provider<SecureStorage>((ref) {

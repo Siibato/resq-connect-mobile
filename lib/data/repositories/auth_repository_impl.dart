@@ -39,11 +39,14 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, User>> login(LoginParams params) async {
     try {
       final response = await _remoteDataSource.login(params);
-      
+
       // Save token and user to secure storage
       await _secureStorage.saveAccessToken(response.accessToken);
+      if (response.refreshToken != null) {
+        await _secureStorage.saveRefreshToken(response.refreshToken!);
+      }
       await _secureStorage.saveUser(response.user);
-      
+
       return Right(response.user.toEntity());
     } on UnauthorizedException catch (e) {
       return Left(Failure.authentication(message: e.message));
@@ -81,6 +84,25 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await _remoteDataSource.resendOtp(identifier);
       return const Right(null);
+    } on ServerException catch (e) {
+      return Left(Failure.server(message: e.message, statusCode: e.statusCode));
+    } on NetworkException catch (e) {
+      return Left(Failure.network(message: e.message));
+    } catch (e) {
+      return Left(Failure.unexpected(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, String>> refreshToken(String refreshToken) async {
+    try {
+      final response = await _remoteDataSource.refreshToken(refreshToken);
+      // Save new access token
+      await _secureStorage.saveAccessToken(response.accessToken);
+      return Right(response.accessToken);
+    } on UnauthorizedException catch (e) {
+      await logout(); // Clear auth state on invalid refresh token
+      return Left(Failure.authentication(message: e.message));
     } on ServerException catch (e) {
       return Left(Failure.server(message: e.message, statusCode: e.statusCode));
     } on NetworkException catch (e) {

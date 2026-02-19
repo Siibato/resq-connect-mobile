@@ -19,9 +19,14 @@ class MediaRemoteDataSourceImpl implements MediaRemoteDataSource {
   @override
   Future<MediaModel> uploadMedia(String incidentId, File file) async {
     final fileName = file.path.split('/').last;
+    final mimeType = _getMimeType(fileName);
     final formData = FormData.fromMap({
       'incidentId': incidentId,
-      'file': await MultipartFile.fromFile(file.path, filename: fileName),
+      'file': await MultipartFile.fromFile(
+        file.path,
+        filename: fileName,
+        contentType: DioMediaType.parse(mimeType),
+      ),
     });
 
     final response = await _dioClient.post(
@@ -31,6 +36,33 @@ class MediaRemoteDataSourceImpl implements MediaRemoteDataSource {
     );
 
     return MediaModel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  String _getMimeType(String fileName) {
+    final extension = fileName.toLowerCase().split('.').last;
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'mp4':
+        return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'avi':
+        return 'video/x-msvideo';
+      case 'mkv':
+        return 'video/x-matroska';
+      case 'webm':
+        return 'video/webm';
+      default:
+        return 'application/octet-stream';
+    }
   }
 }
 

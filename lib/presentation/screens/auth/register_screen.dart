@@ -273,29 +273,23 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _selectedRole = 'RESPONDER'),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          decoration: BoxDecoration(
-                            color: _selectedRole == 'RESPONDER'
-                                ? AppColors.primaryBlue
-                                : AppColors.formBackground,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _selectedRole == 'RESPONDER'
-                                  ? AppColors.primaryBlue
-                                  : Colors.grey.shade300,
-                            ),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade200,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.grey.shade400,
                           ),
+                        ),
+                        child: Tooltip(
+                          message: 'Responder accounts are created by administrators',
                           child: Text(
                             'Responder',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: _selectedRole == 'RESPONDER'
-                                  ? Colors.white
-                                  : AppColors.textBlack,
+                              color: Colors.grey.shade500,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -304,33 +298,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ],
                 ),
-                if (_selectedRole == 'RESPONDER') ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.amber.shade200),
-                    ),
-                    child: const Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.info_outline, size: 18, color: Colors.amber),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Responders must be pre-registered by an administrator',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.amber,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 20),
                 // Date of Birth field
                 const Text(

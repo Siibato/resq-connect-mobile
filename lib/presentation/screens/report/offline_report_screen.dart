@@ -6,8 +6,11 @@ import 'package:uuid/uuid.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../data/datasources/local/database_helper.dart';
 import '../../../data/models/offline_report_model.dart';
+import '../../../domain/entities/incident.dart';
 import '../../../services/location_service.dart';
+import '../../../services/sms_service.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/connectivity_provider.dart';
 
 class OfflineReportScreen extends ConsumerStatefulWidget {
   const OfflineReportScreen({super.key});
@@ -33,6 +36,26 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
     _locationService = LocationService();
     _loadDraftReports();
     _loadLastLocation();
+    _setupConnectivityListener();
+  }
+
+  void _setupConnectivityListener() {
+    // Listen to connectivity changes
+    ref.listen(isOfflineProvider, (previous, next) {
+      next.whenData((isOffline) {
+        // When transitioning from offline to online, trigger sync
+        if (previous != null && previous.when(
+          data: (wasOffline) => wasOffline,
+          loading: () => false,
+          error: (_, __) => false,
+        )) {
+          // Was offline, now online - trigger sync if needed
+          if (!isOffline) {
+            _loadDraftReports();
+          }
+        }
+      });
+    });
   }
 
   @override
@@ -119,22 +142,38 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Check if SMS capability available (check if can send)
-      final smsUri = Uri(scheme: 'sms', path: '+639453859979', queryParameters: {
-        'body': smsText,
-      });
+      final smsService = SmsService();
+      final gatewayNumber = '+639453859979';
+      final incidentType = _stringToIncidentType(_selectedType ?? '');
 
-      // Try to send SMS via native intent
-      if (await canLaunchUrl(smsUri)) {
-        await launchUrl(smsUri);
-        // User sent SMS - mark as sent
-        // But we assume it succeeded since we can't verify from the SMS app
+      // Try to send SMS programmatically
+      try {
+        await smsService.sendReport(
+          gatewayNumber: gatewayNumber,
+          type: incidentType,
+          latitude: _latitude!,
+          longitude: _longitude!,
+          description: _detailsController.text.trim(),
+        );
+        // SMS sent successfully
         _saveOfflineReport(smsText, userName, true);
         _showSuccessDialog();
-      } else {
-        // No SMS capability - save as draft
-        _saveOfflineReport(smsText, userName, false);
-        _showDraftDialog();
+      } catch (e) {
+        // SMS sending failed - fall back to SMS intent
+        final smsUri = Uri(scheme: 'sms', path: gatewayNumber, queryParameters: {
+          'body': smsText,
+        });
+
+        if (await canLaunchUrl(smsUri)) {
+          await launchUrl(smsUri);
+          // User opened SMS app - save as draft (not marked as sent)
+          _saveOfflineReport(smsText, userName, false);
+          _showDraftDialog();
+        } else {
+          // No SMS capability - save as draft
+          _saveOfflineReport(smsText, userName, false);
+          _showDraftDialog();
+        }
       }
     } catch (e) {
       // Save as draft on any error
@@ -223,25 +262,60 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
 
   Future<void> _retryDraftReport(OfflineReport report) async {
     try {
-      final smsUri = Uri(scheme: 'sms', path: '+639453859979', queryParameters: {
+      // Try to send via SmsService first
+      final smsService = SmsService();
+      final gatewayNumber = '+639453859979';
+
+      // Parse the SMS text to extract coordinates
+      // Format: [NAME] - [TYPE] [LAT] [LNG]. [DETAILS]
+      try {
+        final parts = report.smsText.split(' ');
+        if (parts.length >= 5) {
+          final typePart = parts[2]; // TYPE is at index 2
+          final latStr = parts[3];
+          final lngStr = parts[4].replaceAll('.', '');
+
+          final lat = double.tryParse(latStr);
+          final lng = double.tryParse(lngStr);
+
+          if (lat != null && lng != null) {
+            final incidentType = _stringToIncidentType(typePart);
+            await smsService.sendReport(
+              gatewayNumber: gatewayNumber,
+              type: incidentType,
+              latitude: lat,
+              longitude: lng,
+              description: report.smsText.split('. ').skip(1).join('. '),
+            );
+
+            // Mark as sent
+            final dbHelper = ref.read(databaseHelperProvider);
+            await dbHelper.markSmsSent(report.id);
+            _loadDraftReports();
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Report sent successfully'),
+                  backgroundColor: AppColors.primaryBlue,
+                ),
+              );
+            }
+            return;
+          }
+        }
+      } catch (e) {
+        // Parsing failed, fall back to SMS intent
+      }
+
+      // Fall back to SMS intent
+      final smsUri = Uri(scheme: 'sms', path: gatewayNumber, queryParameters: {
         'body': report.smsText,
       });
 
       if (await canLaunchUrl(smsUri)) {
         await launchUrl(smsUri);
-        // Mark as sent
-        final dbHelper = ref.read(databaseHelperProvider);
-        await dbHelper.markSmsSent(report.id);
-        _loadDraftReports();
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Report sent successfully'),
-              backgroundColor: AppColors.primaryBlue,
-            ),
-          );
-        }
+        // Don't mark as sent - user opened SMS app
       }
     } catch (e) {
       if (mounted) {
@@ -281,6 +355,19 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
     }
   }
 
+  IncidentType _stringToIncidentType(String type) {
+    switch (type.toLowerCase()) {
+      case 'fire':
+        return IncidentType.fire;
+      case 'medical':
+        return IncidentType.medical;
+      case 'police':
+        return IncidentType.police;
+      default:
+        return IncidentType.police; // Default fallback
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -299,7 +386,7 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
             unselectedLabelColor: AppColors.textGrey,
             tabs: [
               Tab(text: 'New Report'),
-              Tab(text: 'Drafts'),
+              Tab(text: 'Unsent Reports'),
             ],
           ),
         ),

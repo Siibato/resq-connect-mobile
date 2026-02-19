@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/incident.dart';
 import '../home/home_screen.dart';
-import 'report_summary_screen.dart';
 
 class ReportConfirmationScreen extends StatelessWidget {
   final Incident incident;

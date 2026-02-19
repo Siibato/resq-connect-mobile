@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/incident.dart';
 import '../../../services/health_check_service.dart';
 import '../../../services/location_service.dart';
+import '../../../services/camera_service.dart';
 import '../../providers/incident_provider.dart';
 import 'offline_report_screen.dart';
 import 'report_confirmation_screen.dart';
@@ -23,6 +24,7 @@ class CreateReportScreen extends ConsumerStatefulWidget {
 class _CreateReportScreenState extends ConsumerState<CreateReportScreen> {
   final _descriptionController = TextEditingController();
   final _locationService = LocationService();
+  final _cameraService = CameraService();
 
   IncidentType? _selectedType;
   String? _mediaPath;
@@ -31,6 +33,7 @@ class _CreateReportScreenState extends ConsumerState<CreateReportScreen> {
   double _longitude = 0;
   bool _locationLoaded = false;
   final MapController _mapController = MapController();
+  VideoPlayerController? _videoController;
 
   final _categoryLabels = {
     IncidentType.police: 'Police',
@@ -65,6 +68,7 @@ class _CreateReportScreenState extends ConsumerState<CreateReportScreen> {
   void dispose() {
     _descriptionController.dispose();
     _mapController.dispose();
+    _videoController?.dispose();
     super.dispose();
   }
 
@@ -89,14 +93,33 @@ class _CreateReportScreenState extends ConsumerState<CreateReportScreen> {
     }
   }
 
-  Future<void> _pickMedia() async {
-    final picker = ImagePicker();
-    final image = await picker.pickImage(source: ImageSource.camera);
-    if (image != null) {
+  Future<void> _pickPhoto() async {
+    final file = await _cameraService.pickImageFromCamera();
+    if (file != null) {
       setState(() {
-        _mediaPath = image.path;
+        _mediaPath = file.path;
+        _videoController = null; // Clear video controller
       });
     }
+  }
+
+  Future<void> _pickVideo() async {
+    final file = await _cameraService.recordVideo();
+    if (file != null) {
+      setState(() {
+        _mediaPath = file.path;
+        // Initialize video controller
+        _videoController = VideoPlayerController.file(File(file.path))
+          ..initialize().then((_) {
+            setState(() {});
+          });
+      });
+    }
+  }
+
+  bool _isVideoFile(String path) {
+    final extension = path.toLowerCase().split('.').last;
+    return ['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(extension);
   }
 
   void _submitReport() {
@@ -264,31 +287,56 @@ class _CreateReportScreenState extends ConsumerState<CreateReportScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: OutlinedButton.icon(
-                onPressed: _pickMedia,
-                icon: const Icon(Icons.camera_alt_outlined),
-                label: Text(
-                  _mediaPath != null
-                      ? 'Change photo'
-                      : 'Photo or short video',
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _mediaPath != null
-                      ? AppColors.primaryBlue
-                      : AppColors.textGrey,
-                  side: BorderSide(
-                    color: _mediaPath != null
-                        ? AppColors.primaryBlue
-                        : Colors.grey.shade300,
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: _pickPhoto,
+                      icon: const Icon(Icons.photo_camera),
+                      label: const Text('Photo'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _mediaPath != null && !_mediaPath!.endsWith('.mp4') && !_mediaPath!.endsWith('.mov') && !_mediaPath!.endsWith('.avi')
+                            ? AppColors.primaryBlue
+                            : AppColors.textGrey,
+                        side: BorderSide(
+                          color: _mediaPath != null && !_mediaPath!.endsWith('.mp4') && !_mediaPath!.endsWith('.mov') && !_mediaPath!.endsWith('.avi')
+                              ? AppColors.primaryBlue
+                              : Colors.grey.shade300,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 48,
+                    child: OutlinedButton.icon(
+                      onPressed: _pickVideo,
+                      icon: const Icon(Icons.videocam),
+                      label: const Text('Video'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _mediaPath != null && (_mediaPath!.endsWith('.mp4') || _mediaPath!.endsWith('.mov') || _mediaPath!.endsWith('.avi'))
+                            ? AppColors.primaryBlue
+                            : AppColors.textGrey,
+                        side: BorderSide(
+                          color: _mediaPath != null && (_mediaPath!.endsWith('.mp4') || _mediaPath!.endsWith('.mov') || _mediaPath!.endsWith('.avi'))
+                              ? AppColors.primaryBlue
+                              : Colors.grey.shade300,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
             if (_mediaPath != null) ...[
               const SizedBox(height: 16),
@@ -302,21 +350,32 @@ class _CreateReportScreenState extends ConsumerState<CreateReportScreen> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.file(
-                      File(_mediaPath!),
-                      fit: BoxFit.cover,
-                    ),
+                    if (_isVideoFile(_mediaPath!))
+                      _videoController != null && _videoController!.value.isInitialized
+                          ? VideoPlayer(_videoController!)
+                          : const Center(child: CircularProgressIndicator())
+                    else
+                      Image.file(
+                        File(_mediaPath!),
+                        fit: BoxFit.cover,
+                      ),
                     Positioned(
                       top: 8,
                       right: 8,
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withValues(alpha: 0.5),
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
                           icon: const Icon(Icons.close, color: Colors.white),
-                          onPressed: () => setState(() => _mediaPath = null),
+                          onPressed: () {
+                            _videoController?.dispose();
+                            setState(() {
+                              _mediaPath = null;
+                              _videoController = null;
+                            });
+                          },
                         ),
                       ),
                     ),
