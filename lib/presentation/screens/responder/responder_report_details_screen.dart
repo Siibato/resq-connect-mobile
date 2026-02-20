@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/date_formatter.dart';
@@ -52,7 +53,7 @@ class _ResponderReportDetailsScreenState
         // Auto-start responding when opening a PENDING report
         if (incident.status == IncidentStatus.pending) {
           _autoAcknowledged = true;
-          _updateStatus('IN_PROGRESS');
+          _updateStatus('ACKNOWLEDGED');
         }
       },
       orElse: () {},
@@ -305,6 +306,11 @@ class _ResponderReportDetailsScreenState
                       ),
                     ),
                     const SizedBox(height: 24),
+                    // Media section (if available)
+                    if (incident.mediaUrls.isNotEmpty) ...[
+                      _buildMediaSection(incident),
+                      const SizedBox(height: 24),
+                    ],
                     // Call citizen section
                     _buildCallSection(incident),
                     const SizedBox(height: 24),
@@ -369,6 +375,162 @@ class _ResponderReportDetailsScreenState
           ),
         ),
       ],
+    );
+  }
+
+  bool _isVideoUrl(String url) {
+    final extension = url.toLowerCase().split('.').last;
+    return ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v'].contains(extension) ||
+        url.contains('/video/upload/');
+  }
+
+  Widget _buildMediaSection(Incident incident) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.image_outlined,
+              color: AppColors.primaryBlue,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Attachments (${incident.mediaUrls.length})',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textBlack,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 1,
+          ),
+          itemCount: incident.mediaUrls.length,
+          itemBuilder: (context, index) {
+            final mediaUrl = incident.mediaUrls[index];
+            final isVideo = _isVideoUrl(mediaUrl);
+            return GestureDetector(
+              onTap: () {
+                _showMediaPreview(context, mediaUrl, isVideo);
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                  color: Colors.grey.shade50,
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Thumbnail
+                    if (isVideo)
+                      Container(
+                        color: Colors.black,
+                        child: const Center(
+                          child: Icon(
+                            Icons.videocam_outlined,
+                            color: Colors.white,
+                            size: 40,
+                          ),
+                        ),
+                      )
+                    else
+                      Image.network(
+                        mediaUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Container(
+                            color: Colors.grey.shade200,
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.broken_image_outlined,
+                                  color: AppColors.textGrey,
+                                  size: 32,
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Failed to load',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textGrey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            color: Colors.grey.shade100,
+                            child: const Center(
+                              child: SizedBox(
+                                height: 24,
+                                width: 24,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    // Overlay
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.3),
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Play icon only for videos
+                    if (isVideo)
+                      const Center(
+                        child: Icon(
+                          Icons.play_circle_outline,
+                          color: Colors.white,
+                          size: 40,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  void _showMediaPreview(BuildContext context, String mediaUrl, bool isVideo) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(0),
+        child: isVideo
+            ? _VideoPreviewDialog(videoUrl: mediaUrl)
+            : _ImagePreviewDialog(imageUrl: mediaUrl),
+      ),
     );
   }
 
@@ -464,6 +626,27 @@ class _ResponderReportDetailsScreenState
     UpdateStatusState updateStatusState,
   ) {
     final isUpdating = updateStatusState is UpdateStatusLoading;
+    final nextStatus = incident.status.nextTransition;
+    final nextStatusServerValue = incident.status.nextTransitionServerValue;
+
+    // Build button info based on next status
+    String buttonLabel = '';
+    String buttonSubtitle = '';
+    IconData buttonIcon = Icons.help_outline;
+
+    if (nextStatus == IncidentStatus.acknowledged) {
+      buttonLabel = 'Acknowledge';
+      buttonSubtitle = 'Mark as Acknowledged';
+      buttonIcon = Icons.check_outlined;
+    } else if (nextStatus == IncidentStatus.inProgress) {
+      buttonLabel = 'Start Responding';
+      buttonSubtitle = 'Mark as In Progress';
+      buttonIcon = Icons.autorenew_outlined;
+    } else if (nextStatus == IncidentStatus.resolved) {
+      buttonLabel = 'Mark Resolved';
+      buttonSubtitle = 'Incident complete';
+      buttonIcon = Icons.check_circle_outlined;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -477,32 +660,56 @@ class _ResponderReportDetailsScreenState
           ),
         ),
         const SizedBox(height: 12),
-        // Status buttons
-        Column(
-          spacing: 8,
-          children: [
-            _buildStatusButton(
-              label: 'Start Responding',
-              subtitle: 'Mark as In Progress',
-              icon: Icons.autorenew_outlined,
-              status: 'IN_PROGRESS',
-              isActive: incident.status == IncidentStatus.inProgress,
-              isDisabled: incident.status == IncidentStatus.resolved,
-              isLoading: isUpdating,
-              onTap: () => _updateStatus('IN_PROGRESS'),
+        // Status button - only show if there's a next transition
+        if (nextStatus != null && nextStatusServerValue != null)
+          _buildStatusButton(
+            label: buttonLabel,
+            subtitle: buttonSubtitle,
+            icon: buttonIcon,
+            isLoading: isUpdating,
+            onTap: () => _updateStatus(nextStatusServerValue),
+          )
+        else
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppColors.primaryBlue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            _buildStatusButton(
-              label: 'Mark Resolved',
-              subtitle: 'Incident complete',
-              icon: Icons.check_circle_outlined,
-              status: 'RESOLVED',
-              isActive: incident.status == IncidentStatus.resolved,
-              isDisabled: incident.status != IncidentStatus.inProgress,
-              isLoading: isUpdating,
-              onTap: () => _updateStatus('RESOLVED'),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.check_circle,
+                  color: AppColors.primaryBlue,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Incident Resolved',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryBlue,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'This incident has been resolved and no further actions are needed.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textGrey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
         // Error message if any
         if (updateStatusState is UpdateStatusError)
           Padding(
@@ -531,68 +738,211 @@ class _ResponderReportDetailsScreenState
     required String label,
     required String subtitle,
     required IconData icon,
-    required String status,
-    required bool isActive,
-    required bool isDisabled,
     required bool isLoading,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
-      onTap: isDisabled || isLoading ? null : onTap,
-      child: Opacity(
-        opacity: isDisabled ? 0.5 : 1,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            color: isActive ? AppColors.primaryBlue : Colors.white,
-            border: Border.all(
-              color: isDisabled ? Colors.grey.shade300 : AppColors.primaryBlue,
+      onTap: isLoading ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.primaryBlue,
+          border: Border.all(color: AppColors.primaryBlue),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: Colors.white,
+              size: 20,
             ),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: isActive ? Colors.white : AppColors.primaryBlue,
-                size: 20,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: isActive ? Colors.white : AppColors.textBlack,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isActive ? Colors.white70 : AppColors.textGrey,
-                      ),
-                    ),
-                  ],
+            ),
+            if (isLoading)
+              const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
               ),
-              if (isLoading)
-                const SizedBox(
-                  height: 18,
-                  width: 18,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ImagePreviewDialog extends StatelessWidget {
+  final String imageUrl;
+
+  const _ImagePreviewDialog({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        InteractiveViewer(
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Colors.black,
+                child: const Center(
+                  child: Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.white,
+                    size: 48,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        Positioned(
+          top: 16,
+          right: 16,
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black45,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _VideoPreviewDialog extends StatefulWidget {
+  final String videoUrl;
+
+  const _VideoPreviewDialog({required this.videoUrl});
+
+  @override
+  State<_VideoPreviewDialog> createState() => _VideoPreviewDialogState();
+}
+
+class _VideoPreviewDialogState extends State<_VideoPreviewDialog> {
+  late VideoPlayerController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl))
+      ..initialize().then((_) {
+        setState(() {});
+      }).catchError((e) {
+        // Video initialization error - will show loading state
+      });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Container(
+          color: Colors.black,
+          child: _controller.value.isInitialized
+              ? AspectRatio(
+                  aspectRatio: _controller.value.aspectRatio,
+                  child: VideoPlayer(_controller),
+                )
+              : const Center(
                   child: CircularProgressIndicator(
-                    strokeWidth: 2,
                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 ),
-            ],
+        ),
+        // Play/Pause button
+        if (_controller.value.isInitialized)
+          Center(
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _controller.value.isPlaying
+                      ? _controller.pause()
+                      : _controller.play();
+                });
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black45,
+                  shape: BoxShape.circle,
+                ),
+                padding: const EdgeInsets.all(12),
+                child: Icon(
+                  _controller.value.isPlaying
+                      ? Icons.pause_circle_filled
+                      : Icons.play_circle_filled,
+                  color: Colors.white,
+                  size: 56,
+                ),
+              ),
+            ),
+          ),
+        // Close button
+        Positioned(
+          top: 16,
+          right: 16,
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black45,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
           ),
         ),
-      ),
+      ],
     );
   }
 }

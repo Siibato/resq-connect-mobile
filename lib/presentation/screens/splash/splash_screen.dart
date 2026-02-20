@@ -24,20 +24,35 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
-    await ref.read(authNotifierProvider.notifier).checkAuthStatus();
+    print('[Splash] Starting auth check');
+    try {
+      await ref.read(authNotifierProvider.notifier).checkAuthStatus();
+      print('[Splash] Auth check completed');
+    } catch (e) {
+      print('[Splash] ERROR during auth check: $e');
+    }
+
     if (!mounted) return;
 
     final authState = ref.read(authNotifierProvider);
+    print('[Splash] Auth state after check: ${authState.runtimeType}');
+    print('[Splash] Auth state details: ${authState}');
+
     authState.maybeWhen(
       authenticated: (user) {
+        print('[Splash] ✓ User authenticated: ${user.fullName}, isResponder: ${user.isResponder}');
         final screen = user.isResponder
             ? const ResponderHomeScreen()
             : const HomeScreen();
+        print('[Splash] → Navigating to ${screen.runtimeType}');
+        if (!mounted) return;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => screen),
         );
       },
       orElse: () {
+        print('[Splash] ✗ Not authenticated, navigating to OnboardingScreen');
+        if (!mounted) return;
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const OnboardingScreen()),
         );

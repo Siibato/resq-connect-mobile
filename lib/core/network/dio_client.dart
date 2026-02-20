@@ -6,6 +6,7 @@ import '../constants/api_constants.dart';
 import '../constants/env_config.dart';
 import '../errors/exceptions.dart';
 import '../../data/datasources/local/secure_storage.dart';
+import '../../presentation/providers/auth_provider.dart';
 
 class DioClient {
   final Dio _dio;
@@ -32,13 +33,15 @@ class DioClient {
       connectTimeout: Duration(milliseconds: EnvConfig.apiTimeout),
       receiveTimeout: Duration(milliseconds: EnvConfig.apiTimeout),
       headers: {
-        'Content-Type': 'application/json',
+        // Don't set global Content-Type - let each request handle it
+        // This prevents conflicts with multipart/form-data for file uploads
         'Accept': 'application/json',
       },
     );
 
     _dio.interceptors.addAll([
       _authInterceptor(),
+      _contentTypeInterceptor(),
       _loggingInterceptor(),
       _errorInterceptor(),
     ]);
@@ -61,6 +64,19 @@ class DioClient {
           }
         }
 
+        handler.next(options);
+      },
+    );
+  }
+
+  InterceptorsWrapper _contentTypeInterceptor() {
+    return InterceptorsWrapper(
+      onRequest: (options, handler) {
+        // Set Content-Type: application/json for non-multipart requests
+        if (options.contentType == null ||
+            !options.contentType.toString().contains('multipart')) {
+          options.headers['Content-Type'] = 'application/json';
+        }
         handler.next(options);
       },
     );
@@ -291,9 +307,13 @@ final loggerProvider = Provider<Logger>((ref) => Logger());
 final dioProvider = Provider<Dio>((ref) => Dio());
 
 final dioClientProvider = Provider<DioClient>((ref) {
-  return DioClient(
+  final client = DioClient(
     dio: ref.watch(dioProvider),
     secureStorage: ref.watch(secureStorageProvider),
     logger: ref.watch(loggerProvider),
   );
+  client.onForceLogout = () {
+    ref.read(authNotifierProvider.notifier).logout();
+  };
+  return client;
 });

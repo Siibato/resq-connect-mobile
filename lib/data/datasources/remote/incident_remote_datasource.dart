@@ -22,7 +22,8 @@ class IncidentRemoteDataSourceImpl implements IncidentRemoteDataSource {
       ApiConstants.createIncident,
       data: request.toJson(),
     );
-    return IncidentModel.fromJson(response.data as Map<String, dynamic>);
+    final incident = response.data['incident'] as Map<String, dynamic>;
+    return IncidentModel.fromJson(incident);
   }
 
   @override

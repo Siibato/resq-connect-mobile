@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:logger/logger.dart';
 
 import '../../domain/entities/incident.dart';
 import '../../domain/usecases/incidents/create_incident.dart';
@@ -45,6 +46,8 @@ final incidentSubmitProvider =
 );
 
 class IncidentSubmitNotifier extends Notifier<IncidentSubmitState> {
+  late final Logger _logger = Logger();
+
   @override
   IncidentSubmitState build() => const IncidentSubmitState.initial();
 
@@ -76,7 +79,19 @@ class IncidentSubmitNotifier extends Notifier<IncidentSubmitState> {
       (incident) async {
         // Upload media if provided
         if (mediaPath != null) {
-          await _uploadMedia(incident.id, mediaPath);
+          final uploadResult = await _uploadMedia(incident.id, mediaPath);
+
+          uploadResult.fold(
+            (failure) {
+              // Log media upload failure but don't fail the entire incident
+              // The incident was successfully created, just media upload had issues
+              _logger.w('Media upload failed: ${failure.message}');
+            },
+            (media) {
+              // Media uploaded successfully
+              _logger.i('Media uploaded successfully: ${media.id}');
+            },
+          );
         }
         state = IncidentSubmitState.success(incident);
       },
@@ -209,5 +224,9 @@ class IncidentDetailsNotifier
       (failure) => state = IncidentDetailsState.error(failure.message),
       (incident) => state = IncidentDetailsState.loaded(incident),
     );
+  }
+
+  void updateIncident(Incident incident) {
+    state = IncidentDetailsState.loaded(incident);
   }
 }

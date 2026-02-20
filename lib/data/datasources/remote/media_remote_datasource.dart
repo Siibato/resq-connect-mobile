@@ -18,51 +18,51 @@ class MediaRemoteDataSourceImpl implements MediaRemoteDataSource {
 
   @override
   Future<MediaModel> uploadMedia(String incidentId, File file) async {
+    // Step 1: Get Cloudinary upload signature from server
+    final signResponse = await _dioClient.get(ApiConstants.mediaSign);
+    final sig = signResponse.data as Map<String, dynamic>;
+
+    // Step 2: Upload directly to Cloudinary (bypasses Vercel)
     final fileName = file.path.split('/').last;
-    final mimeType = _getMimeType(fileName);
+    final fileType = _isVideo(fileName) ? 'video' : 'image';
+    final cloudinaryUrl = 'https://api.cloudinary.com/v1_1/${sig['cloudName']}/$fileType/upload';
+
     final formData = FormData.fromMap({
-      'incidentId': incidentId,
-      'file': await MultipartFile.fromFile(
-        file.path,
-        filename: fileName,
-        contentType: DioMediaType.parse(mimeType),
-      ),
+      'file': await MultipartFile.fromFile(file.path, filename: fileName),
+      'api_key': sig['apiKey'],
+      'timestamp': sig['timestamp'].toString(),
+      'signature': sig['signature'],
+      'folder': sig['folder'],
     });
 
-    final response = await _dioClient.post(
-      ApiConstants.mediaUpload,
+    // Use raw Dio instance to avoid interceptors/auth headers
+    final cloudinaryResponse = await Dio().post(
+      cloudinaryUrl,
       data: formData,
-      options: Options(contentType: 'multipart/form-data'),
     );
 
-    return MediaModel.fromJson(response.data as Map<String, dynamic>);
+    if (cloudinaryResponse.statusCode != 200) {
+      throw Exception('Cloudinary upload failed: ${cloudinaryResponse.statusCode}');
+    }
+
+    final secureUrl = cloudinaryResponse.data['secure_url'] as String;
+
+    // Step 3: Confirm upload with server (saves to incident_media DB)
+    final confirmResponse = await _dioClient.post(
+      ApiConstants.mediaConfirm,
+      data: {
+        'incidentId': incidentId,
+        'fileUrl': secureUrl,
+        'fileType': fileType,
+      },
+    );
+
+    return MediaModel.fromJson(confirmResponse.data['media'] as Map<String, dynamic>);
   }
 
-  String _getMimeType(String fileName) {
+  bool _isVideo(String fileName) {
     final extension = fileName.toLowerCase().split('.').last;
-    switch (extension) {
-      case 'jpg':
-      case 'jpeg':
-        return 'image/jpeg';
-      case 'png':
-        return 'image/png';
-      case 'gif':
-        return 'image/gif';
-      case 'webp':
-        return 'image/webp';
-      case 'mp4':
-        return 'video/mp4';
-      case 'mov':
-        return 'video/quicktime';
-      case 'avi':
-        return 'video/x-msvideo';
-      case 'mkv':
-        return 'video/x-matroska';
-      case 'webm':
-        return 'video/webm';
-      default:
-        return 'application/octet-stream';
-    }
+    return ['mp4', 'mov', 'avi', 'mkv', 'webm'].contains(extension);
   }
 }
 

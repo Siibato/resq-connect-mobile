@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/constants/incident_choices.dart';
 import '../../../data/datasources/local/database_helper.dart';
 import '../../../data/models/offline_report_model.dart';
 import '../../../domain/entities/incident.dart';
@@ -23,6 +24,8 @@ class OfflineReportScreen extends ConsumerStatefulWidget {
 class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
   String? _selectedType;
   final _detailsController = TextEditingController();
+  String? _selectedChoice; // Track which predefined choice is selected
+  bool _showCustomField = false; // Track if "Others" is selected
   bool _isLoading = false;
   late LocationService _locationService;
   double? _latitude;
@@ -36,26 +39,6 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
     _locationService = LocationService();
     _loadDraftReports();
     _loadLastLocation();
-    _setupConnectivityListener();
-  }
-
-  void _setupConnectivityListener() {
-    // Listen to connectivity changes
-    ref.listen(isOfflineProvider, (previous, next) {
-      next.whenData((isOffline) {
-        // When transitioning from offline to online, trigger sync
-        if (previous != null && previous.when(
-          data: (wasOffline) => wasOffline,
-          loading: () => false,
-          error: (_, __) => false,
-        )) {
-          // Was offline, now online - trigger sync if needed
-          if (!isOffline) {
-            _loadDraftReports();
-          }
-        }
-      });
-    });
   }
 
   @override
@@ -83,6 +66,22 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
         _locationError = 'Error loading location: ${e.toString()}';
       });
     }
+  }
+
+  void _selectChoice(String choice) {
+    setState(() {
+      _selectedChoice = choice;
+      _showCustomField = false;
+      _detailsController.text = choice;
+    });
+  }
+
+  void _selectOthers() {
+    setState(() {
+      _selectedChoice = null;
+      _showCustomField = true;
+      _detailsController.clear();
+    });
   }
 
   void _loadDraftReports() async {
@@ -160,25 +159,31 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
         _showSuccessDialog();
       } catch (e) {
         // SMS sending failed - fall back to SMS intent
-        final smsUri = Uri(scheme: 'sms', path: gatewayNumber, queryParameters: {
+        // Use 'smsto' scheme which is more reliable on Android 11+
+        final smsUri = Uri(scheme: 'smsto', path: gatewayNumber, queryParameters: {
           'body': smsText,
         });
 
         if (await canLaunchUrl(smsUri)) {
           await launchUrl(smsUri);
-          // User opened SMS app - save as draft (not marked as sent)
-          _saveOfflineReport(smsText, userName, false);
-          _showDraftDialog();
+          // User opened SMS app - mark as sent since message is ready to send
+          _saveOfflineReport(smsText, userName, true);
+          _showIntentDialog();
         } else {
-          // No SMS capability - save as draft
-          _saveOfflineReport(smsText, userName, false);
-          _showDraftDialog();
+          // No SMS capability - show error
+          _showErrorDialog();
         }
       }
     } catch (e) {
-      // Save as draft on any error
-      _saveOfflineReport(smsText, userName, false);
-      _showDraftDialog();
+      // Show error on unexpected failures
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       setState(() => _isLoading = false);
     }
@@ -206,11 +211,15 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
 
       await dbHelper.insertSmsOfflineReport(report.toJson());
 
-      // Clear form
+      // Clear form and only add to draft list if it's a draft
       setState(() {
         _selectedType = null;
+        _selectedChoice = null;
+        _showCustomField = false;
         _detailsController.clear();
-        _draftReports.insert(0, report);
+        if (!sent) {
+          _draftReports.insert(0, report);
+        }
       });
     } catch (e) {
       if (mounted) {
@@ -242,13 +251,35 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
     );
   }
 
-  void _showDraftDialog() {
+  void _showIntentDialog() {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Saved as Draft'),
+        title: const Text('SMS Ready to Send'),
         content: const Text(
-          'Report saved as draft. It will be sent automatically when your phone has cellular connection available.',
+          'The SMS app has opened with your message pre-filled. Please tap Send to submit your report.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showErrorDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Unable to Send SMS'),
+        content: const Text(
+          'Could not open SMS app. Please check:\n\n'
+          '• SMS app is installed and enabled\n'
+          '• SMS app is set as default\n'
+          '• Device has SMS capability\n\n'
+          'Try opening your Messages app and sending the SMS manually.',
         ),
         actions: [
           TextButton(
@@ -309,13 +340,35 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
       }
 
       // Fall back to SMS intent
-      final smsUri = Uri(scheme: 'sms', path: gatewayNumber, queryParameters: {
+      final smsUri = Uri(scheme: 'smsto', path: gatewayNumber, queryParameters: {
         'body': report.smsText,
       });
 
       if (await canLaunchUrl(smsUri)) {
         await launchUrl(smsUri);
-        // Don't mark as sent - user opened SMS app
+        // Mark as sent since SMS app is now open
+        final dbHelper = ref.read(databaseHelperProvider);
+        await dbHelper.markSmsSent(report.id);
+        _loadDraftReports();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('SMS app opened. Please send the message.'),
+              backgroundColor: AppColors.primaryBlue,
+            ),
+          );
+        }
+      } else {
+        // No SMS capability
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not open SMS app'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -370,6 +423,23 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen to connectivity changes and reload drafts when transitioning to online
+    ref.listen(isOfflineProvider, (previous, next) {
+      next.whenData((isOffline) {
+        // When transitioning from offline to online, trigger sync
+        if (previous != null && previous.when(
+          data: (wasOffline) => wasOffline,
+          loading: () => false,
+          error: (_, __) => false,
+        )) {
+          // Was offline, now online - trigger sync if needed
+          if (!isOffline) {
+            _loadDraftReports();
+          }
+        }
+      });
+    });
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -482,28 +552,8 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Details field
-          const Text(
-            'Details *',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textBlack,
-            ),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _detailsController,
-            maxLines: 5,
-            decoration: InputDecoration(
-              hintText: 'Describe the incident...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.all(12),
-            ),
-          ),
-          const SizedBox(height: 32),
+          // Choice buttons
+          _buildChoiceButtons(),
 
           // Send button
           SizedBox(
@@ -684,6 +734,119 @@ class _OfflineReportScreenState extends ConsumerState<OfflineReportScreen> {
             ),
           ),
         ),
+      ],
+    );
+  }
+
+  Widget _buildChoiceButtons() {
+    if (_selectedType == null) {
+      return const SizedBox.shrink();
+    }
+
+    final incidentType = _stringToIncidentType(_selectedType ?? '');
+    final choices = incidentChoices[incidentType] ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Select what happened *',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textBlack,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            ...choices.map((choice) {
+              final isSelected = _selectedChoice == choice;
+              return SizedBox(
+                width: (MediaQuery.of(context).size.width - 40 - 12) / 2,
+                child: OutlinedButton(
+                  onPressed: () => _selectChoice(choice),
+                  style: OutlinedButton.styleFrom(
+                    backgroundColor: isSelected
+                        ? AppColors.primaryBlue
+                        : Colors.transparent,
+                    side: BorderSide(
+                      color: isSelected
+                          ? AppColors.primaryBlue
+                          : Colors.grey.shade300,
+                      width: 2,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                  ),
+                  child: Text(
+                    choice,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: isSelected
+                          ? Colors.white
+                          : AppColors.textBlack,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+            SizedBox(
+              width: (MediaQuery.of(context).size.width - 40 - 12) / 2,
+              child: OutlinedButton(
+                onPressed: _selectOthers,
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: _showCustomField
+                      ? AppColors.primaryBlue
+                      : Colors.transparent,
+                  side: BorderSide(
+                    color: _showCustomField
+                        ? AppColors.primaryBlue
+                        : Colors.grey.shade300,
+                    width: 2,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: Text(
+                  'Others',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _showCustomField
+                        ? Colors.white
+                        : AppColors.textBlack,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (_showCustomField) ...[
+          const SizedBox(height: 12),
+          TextField(
+            controller: _detailsController,
+            maxLines: 5,
+            decoration: InputDecoration(
+              hintText: 'Describe the incident...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.all(12),
+            ),
+          ),
+        ],
+        const SizedBox(height: 24),
       ],
     );
   }

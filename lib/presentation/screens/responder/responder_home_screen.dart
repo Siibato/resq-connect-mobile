@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../domain/entities/incident.dart';
+import '../../../services/notification_service.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/responder_provider.dart';
 import '../../widgets/incident/incident_card.dart';
@@ -83,6 +84,12 @@ class _ResponderHomeScreenState extends ConsumerState<ResponderHomeScreen> {
             // Only show modal if incident is PENDING (Received status)
             // Never show for ACKNOWLEDGED, IN_PROGRESS, or RESOLVED
             if (newlyAssigned != null && newlyAssigned.status == IncidentStatus.pending) {
+              // Show system notification
+              ref.read(notificationServiceProvider).showNotification(
+                title: 'New Incident Assigned',
+                body:
+                    '${newlyAssigned.type.displayName} at ${newlyAssigned.displayLocation}',
+              );
               _showAssignmentModal(context, newlyAssigned);
             }
           },

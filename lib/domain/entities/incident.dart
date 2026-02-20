@@ -45,12 +45,51 @@ extension IncidentStatusExtension on IncidentStatus {
       case IncidentStatus.pending:
         return 'Received';
       case IncidentStatus.acknowledged:
-        return 'In Progress';
+        return 'Acknowledged';
       case IncidentStatus.inProgress:
         return 'In Progress';
       case IncidentStatus.resolved:
         return 'Resolved';
     }
+  }
+
+  /// Get the next valid transition for this status
+  IncidentStatus? get nextTransition {
+    switch (this) {
+      case IncidentStatus.pending:
+        return IncidentStatus.acknowledged;
+      case IncidentStatus.acknowledged:
+        return IncidentStatus.inProgress;
+      case IncidentStatus.inProgress:
+        return IncidentStatus.resolved;
+      case IncidentStatus.resolved:
+        return null; // No further transitions
+    }
+  }
+
+  /// Get the server status string for the next transition
+  String? get nextTransitionServerValue {
+    final next = nextTransition;
+    return next?.serverValue;
+  }
+
+  /// Get server status string
+  String get serverValue {
+    switch (this) {
+      case IncidentStatus.pending:
+        return 'PENDING';
+      case IncidentStatus.acknowledged:
+        return 'ACKNOWLEDGED';
+      case IncidentStatus.inProgress:
+        return 'IN_PROGRESS';
+      case IncidentStatus.resolved:
+        return 'RESOLVED';
+    }
+  }
+
+  /// Check if a transition to another status is valid
+  bool canTransitionTo(IncidentStatus target) {
+    return nextTransition == target;
   }
 
   static IncidentStatus fromString(String value) {

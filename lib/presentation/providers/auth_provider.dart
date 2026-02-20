@@ -9,6 +9,7 @@ import '../../domain/usecases/auth/resend_otp.dart';
 import '../../domain/usecases/auth/verify_otp.dart';
 import '../../domain/usecases/auth/check_auth_status.dart';
 import '../../domain/usecases/auth/get_current_user.dart';
+import '../../services/firebase_service.dart';
 import 'auth_state.dart';
 
 final authNotifierProvider =
@@ -72,7 +73,10 @@ class AuthNotifier extends Notifier<AuthState> {
           state = AuthState.error(failure.message);
         }
       },
-      (user) => state = AuthState.authenticated(user),
+      (user) {
+        state = AuthState.authenticated(user);
+        _uploadFcmToken();
+      },
     );
   }
 
@@ -86,7 +90,10 @@ class AuthNotifier extends Notifier<AuthState> {
 
     result.fold(
       (failure) => state = AuthState.error(failure.message),
-      (user) => state = AuthState.authenticated(user),
+      (user) {
+        state = AuthState.authenticated(user);
+        _uploadFcmToken();
+      },
     );
   }
 
@@ -134,14 +141,47 @@ class AuthNotifier extends Notifier<AuthState> {
   }
 
   Future<void> checkAuthStatus() async {
-    final isLoggedIn = await _checkAuthStatus();
-    if (isLoggedIn) {
+    try {
+      final isLoggedIn = await _checkAuthStatus();
+      print('[Auth] isLoggedIn: $isLoggedIn');
+
+      if (!isLoggedIn) {
+        state = const AuthState.unauthenticated();
+        print('[Auth] No token found, setting unauthenticated');
+        return;
+      }
+
       final userResult = await _getCurrentUser();
-      userResult.fold(
-        (_) => state = const AuthState.unauthenticated(),
-        (user) => state = AuthState.authenticated(user),
-      );
-    } else {
+      print('[Auth] getUserResult isRight: ${userResult.isRight()}');
+
+      if (userResult.isRight()) {
+        // Success: use fresh user data from API
+        userResult.fold(
+          (failure) {},
+          (user) {
+            print('[Auth] Setting authenticated state with user: ${user.id}');
+            state = AuthState.authenticated(user);
+            _uploadFcmToken();
+          },
+        );
+      } else {
+        // Network/server failure: fall back to cached user
+        print('[Auth] getProfile failed, trying cached user');
+        final repo = ref.read(authRepositoryProvider);
+        final cachedUser = await repo.getCachedUser();
+
+        if (cachedUser != null) {
+          print('[Auth] Using cached user: ${cachedUser.id}');
+          state = AuthState.authenticated(cachedUser);
+          _uploadFcmToken();
+        } else {
+          print('[Auth] No cached user, setting unauthenticated');
+          state = const AuthState.unauthenticated();
+        }
+      }
+      print('[Auth] Final state: ${state.runtimeType}');
+    } catch (e) {
+      print('[Auth] ERROR in checkAuthStatus: $e');
       state = const AuthState.unauthenticated();
     }
   }
@@ -152,5 +192,19 @@ class AuthNotifier extends Notifier<AuthState> {
       unverified: (_) => state = const AuthState.unauthenticated(),
       orElse: () {},
     );
+  }
+
+  void _uploadFcmToken() async {
+    try {
+      final firebaseService = ref.read(firebaseServiceProvider);
+      final token = firebaseService.fcmToken;
+      if (token != null) {
+        await ref.read(authRepositoryProvider).updateProfile(
+              UpdateProfileParams(fcmToken: token),
+            );
+      }
+    } catch (_) {
+      // Silent fail — token upload is best-effort
+    }
   }
 }

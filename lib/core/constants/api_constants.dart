@@ -50,7 +50,8 @@ class ApiConstants {
   static String responderPerformance(String id) => '$respondersBase/$id/performance';
 
   // Media endpoints
-  static const String mediaUpload = '$mediaBase/upload';
+  static const String mediaSign = '$mediaBase/sign';
+  static const String mediaConfirm = '$mediaBase/confirm';
   static String mediaServe(String id) => '$mediaBase/$id';
   static String mediaDelete(String id) => '$mediaBase/$id';
 

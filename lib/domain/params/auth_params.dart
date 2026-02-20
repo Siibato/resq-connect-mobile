@@ -61,6 +61,7 @@ class UpdateProfileParams {
   final String? mobile;
   final String? address;
   final String? notificationPreference;
+  final String? fcmToken;
 
   const UpdateProfileParams({
     this.fullName,
@@ -68,6 +69,7 @@ class UpdateProfileParams {
     this.mobile,
     this.address,
     this.notificationPreference,
+    this.fcmToken,
   });
 
   Map<String, dynamic> toJson() => {
@@ -77,6 +79,7 @@ class UpdateProfileParams {
         if (address != null) 'address': address,
         if (notificationPreference != null)
           'notificationPreference': notificationPreference,
+        if (fcmToken != null) 'fcmToken': fcmToken,
       };
 }
 

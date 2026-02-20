@@ -54,17 +54,20 @@ sealed class AuthState {
     required T Function() orElse,
   }) {
     return switch (this) {
-      AuthStateInitial() => initial?.call() ?? orElse(),
-      AuthStateLoading() => loading?.call() ?? orElse(),
+      AuthStateInitial() => initial != null ? initial() : orElse(),
+      AuthStateLoading() => loading != null ? loading() : orElse(),
       AuthStateAuthenticated(user: final user) =>
-        authenticated?.call(user) ?? orElse(),
-      AuthStateUnauthenticated() => unauthenticated?.call() ?? orElse(),
+        authenticated != null ? authenticated(user) : orElse(),
+      AuthStateUnauthenticated() =>
+        unauthenticated != null ? unauthenticated() : orElse(),
       AuthStateRegistered(identifier: final identifier) =>
-        registered?.call(identifier) ?? orElse(),
-      AuthStateOtpVerified() => otpVerified?.call() ?? orElse(),
+        registered != null ? registered(identifier) : orElse(),
+      AuthStateOtpVerified() =>
+        otpVerified != null ? otpVerified() : orElse(),
       AuthStateUnverified(identifier: final identifier) =>
-        unverified?.call(identifier) ?? orElse(),
-      AuthStateError(message: final message) => error?.call(message) ?? orElse(),
+        unverified != null ? unverified(identifier) : orElse(),
+      AuthStateError(message: final message) =>
+        error != null ? error(message) : orElse(),
     };
   }
 }

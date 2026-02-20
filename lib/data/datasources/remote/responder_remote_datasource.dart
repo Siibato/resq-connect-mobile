@@ -48,7 +48,10 @@ class ResponderRemoteDataSourceImpl implements ResponderRemoteDataSource {
         if (notes != null) 'notes': notes,
       },
     );
-    return IncidentModel.fromJson(response.data as Map<String, dynamic>);
+    final data = response.data as Map<String, dynamic>;
+    // Server returns { message: "...", incident: {...} }
+    final incidentData = data['incident'] as Map<String, dynamic>? ?? data;
+    return IncidentModel.fromJson(incidentData);
   }
 }
 

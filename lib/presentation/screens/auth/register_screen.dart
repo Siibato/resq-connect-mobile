@@ -24,7 +24,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _obscurePassword = true;
   DateTime? _selectedDate;
   String _countryCode = '+63';
-  String _selectedRole = 'CITIZEN';
 
   @override
   void dispose() {
@@ -79,7 +78,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             dateOfBirth: _selectedDate!,
             mobile: '$_countryCode${_mobileController.text.trim()}',
             password: _passwordController.text,
-            role: _selectedRole,
+            role: 'CITIZEN',
           );
     }
   }
@@ -227,76 +226,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                // Role selection
-                const Text(
-                  'Sign up as',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textBlack,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _selectedRole = 'CITIZEN'),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          decoration: BoxDecoration(
-                            color: _selectedRole == 'CITIZEN'
-                                ? AppColors.primaryBlue
-                                : AppColors.formBackground,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _selectedRole == 'CITIZEN'
-                                  ? AppColors.primaryBlue
-                                  : Colors.grey.shade300,
-                            ),
-                          ),
-                          child: Text(
-                            'Citizen',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: _selectedRole == 'CITIZEN'
-                                  ? Colors.white
-                                  : AppColors.textBlack,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.grey.shade400,
-                          ),
-                        ),
-                        child: Tooltip(
-                          message: 'Responder accounts are created by administrators',
-                          child: Text(
-                            'Responder',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade500,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
                 const SizedBox(height: 20),
                 // Date of Birth field

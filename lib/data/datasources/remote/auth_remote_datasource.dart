@@ -15,6 +15,7 @@ abstract class AuthRemoteDataSource {
   Future<UserModel> getProfile();
   Future<UserModel> updateProfile(UpdateProfileParams params);
   Future<void> changePassword(ChangePasswordParams params);
+  Future<void> registerFcmToken(String token);
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -94,6 +95,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     await _dioClient.post(
       ApiConstants.changePassword,
       data: params.toJson(),
+    );
+  }
+
+  @override
+  Future<void> registerFcmToken(String token) async {
+    await _dioClient.patch(
+      ApiConstants.profile,
+      data: {'fcmToken': token},
     );
   }
 }

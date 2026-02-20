@@ -172,8 +172,8 @@ class UpdateStatusNotifier extends Notifier<UpdateStatusState> {
         state = UpdateStatusState.success(incident);
         // Refresh the assigned incidents list and incident details after status update
         ref.read(assignedIncidentsProvider.notifier).refresh();
-        // Also invalidate and reload the incident details
-        ref.invalidate(incidentDetailsProvider(incidentId));
+        // Update the incident details in-place without triggering a reload
+        ref.read(incidentDetailsProvider(incidentId).notifier).updateIncident(incident);
       },
     );
   }
